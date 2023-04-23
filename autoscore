@@ -1,0 +1,104 @@
+if getgenv().IG ~= nil then
+    getgenv().IG:Disconnect()
+    getgenv().IG = nil
+    
+    warn("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+end
+
+local Player = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+
+local TI = TweenInfo.new(0.1)
+local Camera = Workspace.CurrentCamera
+
+local MiddleOfScreen = Camera.ViewportSize / 2
+
+local Orbiting = false
+
+local Goals = {} do
+    for _, Obj in next, game:GetDescendants() do
+        if Obj.Name == "Goal" and Obj:IsA("BasePart") then
+            table.insert(Goals, Obj)
+        elseif Obj.Name == "Part" and Obj:IsA("BasePart") and Obj.Size == Vector3.new(5, 1, 5) then
+            table.insert(Goals, Obj)
+        end
+    end
+end
+
+local GetGoal = function()
+    local LowestMagnitude = 9e9
+    local Goal = nil
+    
+    for _, Obj in next, Goals do
+        local GoalPosition, Visible = Camera:WorldToScreenPoint(Obj.Position)
+        
+        if Visible == true then
+            local Parts = Camera:GetPartsObscuringTarget({Obj.Position}, {})
+        
+            for _, Part in next, Parts do
+                if Part.Parent ~= nil and Part.Parent.Name == "Barrier" and Part.Parent:IsA("Model") == true then
+                    return
+                end
+            end
+            
+            local GoalOnScreen = Vector2.new(GoalPosition.X, GoalPosition.Y)
+            local Magnitude = (MiddleOfScreen - GoalOnScreen).Magnitude
+            
+            if LowestMagnitude > Magnitude then
+                LowestMagnitude = Magnitude
+                Goal = Obj
+            end
+        end
+    end
+    
+    return Goal
+end
+
+local OrbitScore = function()
+    local Goal = GetGoal()
+    
+    if Goal ~= nil then
+        local Root = Player.Character:FindFirstChild("HumanoidRootPart", true)
+        local Humanoid = Player.Character.Humanoid
+        
+        local OrbitRadius = 30
+        local OrbitSpeed = 90
+        
+        local OldCFrame = Root.CFrame
+        local CurrentCFrame = CFrame.new()
+        
+        Camera.CameraSubject = Goal
+        
+        Root.Anchored = true
+        
+        while OrbitRadius > 0 do
+            local NewCFrame = CFrame.new(Goal.Position + (CurrentCFrame.LookVector * OrbitRadius), Goal.Position)
+            local Tween = TS:Create(Root, TI, {CFrame = NewCFrame})
+            
+            Tween:Play()
+            Tween.Completed:Wait()
+            
+            CurrentCFrame = CurrentCFrame * CFrame.fromEulerAnglesXYZ(0, OrbitSpeed, 0)
+            OrbitRadius = OrbitRadius - 3
+            
+            task.wait()
+        end
+        
+        Root.Anchored = false
+        
+        task.wait(1)
+        
+        Root.CFrame = OldCFrame
+        Camera.CameraSubject = Humanoid
+    end
+end
+
+getgenv().IG = UIS.InputBegan:Connect(function(Key, GPE)
+    if GPE == false and Key.KeyCode == Enum.KeyCode.X and Player.Character:FindFirstChildWhichIsA("Folder") ~= nil and Orbiting == false then
+        Orbiting = true
+        OrbitScore()
+        task.wait(1.5)
+        Orbiting = false
+    end
+end)
